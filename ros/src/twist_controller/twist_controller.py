@@ -16,8 +16,8 @@ class Controller(object):
         self.decel_limit_Nm = decel_limit * vehicle_mass * wheel_radius
         self.accel_limit_Nm = accel_limit * vehicle_mass * wheel_radius
         
-        kp_trq = 100
-        ki_trq = 0.0
+        kp_trq = 10
+        ki_trq = 1.0
         kd_trq = 0.0
         self.throt = 0
         self.brake = 0
@@ -42,7 +42,7 @@ class Controller(object):
                 self.throt = 0
             else:
                 self.brake = 0 
-                self.throt = veh_trq_req / 1000
+                self.throt = veh_trq_req / self.accel_limit_Nm
         else:
             self.trq_pid.reset()
         return self.throt, self.brake
