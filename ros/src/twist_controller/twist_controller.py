@@ -6,19 +6,16 @@ from lowpass import LowPassFilter
 from pid import PID
 
 class Controller(object):
-    def __init__(self, vehicle_mass,brake_deadband,decel_limit,accel_limit,wheel_radius):
+    def __init__(self, vehicle_mass, brake_deadband, decel_limit, accel_limit, wheel_radius):
         # TODO: Implement
         self.vehicle_mass = vehicle_mass
         self.brake_deadband = brake_deadband
         self.decel_limit = decel_limit
         self.accel_limit = accel_limit
         self.wheel_radius = wheel_radius
-        kp_throt = 0.1
-        ki_throt = 0.1
-        kd_throt = 0.0
-        kp_brake = 0.1
-        ki_brake = 0.1
-        kd_brake = 0.0
+        self.decel_limit_Nm = decel_limit * vehicle_mass * wheel_radius
+        self.accel_limit_Nm = accel_limit * vehicle_mass * wheel_radius
+        
         kp_trq = 100
         ki_trq = 0.0
         kd_trq = 0.0
@@ -29,17 +26,16 @@ class Controller(object):
         #controller rate is 50Hz -> 0.02 Ts
         #cut off the driver at 10Hz -> 0.1 Tau
         self.low_pass_filter = LowPassFilter(0.1, 0.02)
-        self.throt_pid = PID(kp_throt, ki_throt, kd_throt, mn=0, mx=1)
-        self.brake_pid = PID(kp_throt, ki_throt, kd_throt, mn=0, mx=1000)
-        self.trq_pid   = PID(kp_trq,   ki_trq,   kd_trq,   -1000.0, 1000.0)
+        self.trq_pid   = PID(kp_trq,   ki_trq,   kd_trq,   self.decel_limit_Nm, self.accel_limit_Nm)
 
     def linear_control(self, dbw_enabled, veh_spd_cmd, veh_spd_act):
         # TODO: Change the arg, kwarg list to suit your needs
         # Return throttle, brake, steer
         
         if dbw_enabled:
-            veh_spd_err = veh_spd_cmd - veh_spd_act
-            print(veh_spd_err)
+            veh_spd_act_filt = self.low_pass_filter.filt(veh_spd_act)
+            veh_spd_err = veh_spd_cmd - veh_spd_act_filt
+            
             veh_trq_req = self.trq_pid.step(veh_spd_err, 0.02)
             if veh_trq_req <= 0:
                 self.brake = -veh_trq_req
