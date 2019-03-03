@@ -38,8 +38,8 @@ class DBWNode(object):
         vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
         fuel_capacity = rospy.get_param('~fuel_capacity', 13.5)
         brake_deadband = rospy.get_param('~brake_deadband', .1)
-        decel_limit = rospy.get_param('~decel_limit', -5)
-        accel_limit = rospy.get_param('~accel_limit', 1.)
+        decel_limit = rospy.get_param('~decel_limit', -5.0)
+        accel_limit = rospy.get_param('~accel_limit', 1.0)
         wheel_radius = rospy.get_param('~wheel_radius', 0.2413)
         wheel_base = rospy.get_param('~wheel_base', 2.8498)
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
@@ -55,8 +55,18 @@ class DBWNode(object):
 
         # TODO: Create `Controller` object
         # self.controller = Controller(<Arguments you wish to provide>)
+        self.controller = Controller(vehicle_mass,brake_deadband,decel_limit,accel_limit,wheel_radius,wheel_base, steer_ratio, max_lat_accel, max_steer_angle)
 
         # TODO: Subscribe to all the topics you need to
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_current_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.velocity_target_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.angular_velocity_cb)
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
+
+        self.velocity_current = None
+        self.velocity_target = None
+        self.angular_velocity = None
+        self.dbw_enabled = None
 
         self.loop()
 
@@ -72,6 +82,10 @@ class DBWNode(object):
             #                                                     <any other argument you need>)
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
+            if self.dbw_enabled:
+                throttle, brake, steer = self.controller.control(self.dbw_enabled, self.velocity_target, self.velocity_current, self.angular_velocity)
+                self.publish(throttle, brake, steer)
+                
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
@@ -91,6 +105,18 @@ class DBWNode(object):
         bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
+
+    def velocity_current_cb(self, msg):
+        self.velocity_current = msg.twist.linear.x
+
+    def velocity_target_cb(self, msg):
+        self.velocity_target = msg.twist.linear.x
+
+    def angular_velocity_cb(self, msg):
+        self.angular_velocity = msg.twist.angular.z
+
+    def dbw_enabled_cb(self, msg):
+        self.dbw_enabled = msg
 
 
 if __name__ == '__main__':
