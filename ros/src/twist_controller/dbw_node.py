@@ -61,6 +61,7 @@ class DBWNode(object):
         rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_current_cb)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.velocity_target_cb)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.angular_velocity_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.pitch_cb)
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
 
         self.velocity_current = None
@@ -117,6 +118,9 @@ class DBWNode(object):
 
     def dbw_enabled_cb(self, msg):
         self.dbw_enabled = msg
+
+    def pitch_cb(self, msg):
+        self.pitch = msg.twist.angular.y
 
 
 if __name__ == '__main__':
