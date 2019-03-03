@@ -4,9 +4,9 @@ ONE_MPH = 0.44704
 
 from lowpass import LowPassFilter
 from pid import PID
-
+from yaw_controller import YawController
 class Controller(object):
-    def __init__(self, vehicle_mass, brake_deadband, decel_limit, accel_limit, wheel_radius):
+    def __init__(self, vehicle_mass, brake_deadband, decel_limit, accel_limit, wheel_radius,wheel_base, steer_ratio, max_lat_accel, max_steer_angle):
         # TODO: Implement
         self.vehicle_mass = vehicle_mass
         self.brake_deadband = brake_deadband
@@ -21,14 +21,16 @@ class Controller(object):
         kd_trq = 0.0
         self.throt = 0
         self.brake = 0
+        self.steering = 0 
 
         #Low Pass Filter object
         #controller rate is 50Hz -> 0.02 Ts
         #cut off the driver at 10Hz -> 0.1 Tau
         self.low_pass_filter = LowPassFilter(0.1, 0.02)
         self.trq_pid   = PID(kp_trq,   ki_trq,   kd_trq,   self.decel_limit_Nm, self.accel_limit_Nm)
+        self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
 
-    def linear_control(self, dbw_enabled, veh_spd_cmd, veh_spd_act):
+    def control(self, dbw_enabled, veh_spd_cmd, veh_spd_act, angular_vel):
         # TODO: Change the arg, kwarg list to suit your needs
         # Return throttle, brake, steer
         
@@ -43,6 +45,11 @@ class Controller(object):
             else:
                 self.brake = 0 
                 self.throt = veh_trq_req / self.accel_limit_Nm
+
+            self.steering = self.yaw_controller.get_steering(veh_spd_cmd, angular_vel, veh_spd_act) 
+            return self.throt, self.brake, self.steering
+        
         else:
             self.trq_pid.reset()
-        return self.throt, self.brake
+            return 0.0, 0.0, 0.0
+        
