@@ -9,8 +9,8 @@ __pycache__/
 
 # folders
 models/
-devel
-build
+devel/
+build/
 
 # Packages #
 ############
