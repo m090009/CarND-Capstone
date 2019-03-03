@@ -9,6 +9,10 @@ __pycache__/
 
 # folders
 models/
+devel/
+build/
+
+profile.tmp
 
 # Packages #
 ############
