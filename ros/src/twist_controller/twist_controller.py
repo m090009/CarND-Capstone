@@ -46,7 +46,7 @@ class Controller(object):
                 self.brake = 0 
                 self.throt = veh_trq_req / self.accel_limit_Nm
 
-            self.steering = self.yaw_controller.get_steering(veh_spd_cmd, angular_vel, veh_spd_act) 
+            self.steering = self.yaw_controller.get_steering(veh_spd_cmd, angular_vel, veh_spd_act_filt) 
             return self.throt, self.brake, self.steering
         
         else:
