@@ -25,7 +25,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
-
+MAX_DECEL = 1.0
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -44,7 +44,8 @@ class WaypointUpdater(object):
         # Other member variables 
         self.max_velocity = self.kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
         self.pos = None
-        self.waypoints = None  
+        self.waypoints = None
+        self.redlight_wp_index = None
 
         rospy.spin()
 
@@ -63,8 +64,9 @@ class WaypointUpdater(object):
             self.waypoints = msg.waypoints
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        self.redlight_wp_index = msg.data
+        if self.redlight_wp_index > -1:
+            self.publish()
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -98,6 +100,25 @@ class WaypointUpdater(object):
         """ Convert kilometers per hour to meters per second """
         return (velocity_kmph * 1000.) / (60. * 60.)
 
+    def decelerate_waypoints(self, waypoints, next_idx):
+        """ Decelerate an input set of waypoints to reach a stop """
+        temp = []
+        for i, wp in enumerate(waypoints):
+        
+            p = Waypoint()
+            p.pose = wp.pose
+            
+            stop_idx = max(self.redlight_wp_index - next_idx - 2, 0)  # Two waypoints back from line so front of car stops before line
+            dist = self.distance(waypoints, i, stop_idx)
+            vel = math.sqrt(2*MAX_DECEL*dist)
+            if vel < 1.:
+                vel = 0
+            
+            p.twist.twist.linear.x = min(vel, wp.twist.twist.linear.x)
+            temp.append(p)
+            
+        return temp
+
     def get_next_waypoint(self, pos, waypoints):
         """ Find the next waypoint ahead of the given position """
         closest_distance = sys.float_info.max
@@ -128,9 +149,14 @@ class WaypointUpdater(object):
         if self.pos is not None:
             next_waypoint = self.get_next_waypoint(self.pos, self.waypoints)
             updated_waypoints = self.waypoints[next_waypoint:next_waypoint+LOOKAHEAD_WPS]
-            
-            for i in range(len(updated_waypoints) - 1):
-                 self.set_waypoint_velocity(updated_waypoints, i, self.max_velocity)
+
+            if (self.redlight_wp_index is None or 
+               (self.redlight_wp_index < 0) or 
+               (self.redlight_wp_index > (next_waypoint+LOOKAHEAD_WPS))):
+                    for i in range(len(updated_waypoints) - 1):
+                         self.set_waypoint_velocity(updated_waypoints, i, self.max_velocity)
+            else:
+                updated_waypoints = self.decelerate_waypoints(updated_waypoints,next_waypoint)
 
             # copy Lane() setup from waypoint_loader.py 
             lane = Lane()
