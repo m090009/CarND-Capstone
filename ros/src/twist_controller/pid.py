@@ -19,6 +19,14 @@ class PID(object):
     def step(self, error, sample_time):
 
         integral = self.int_val + error * sample_time;
+        
+        #limit the integral term to avoid wind up
+        if integral > self.max:
+            integral = self.max
+
+        if integral < -self.max:
+            integral = -self.max
+
         derivative = (error - self.last_error) / sample_time;
 
         val = self.kp * error + self.ki * integral + self.kd * derivative;

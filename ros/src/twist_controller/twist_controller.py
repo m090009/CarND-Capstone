@@ -16,7 +16,7 @@ class Controller(object):
         self.decel_limit_Nm = decel_limit * vehicle_mass * wheel_radius
         self.accel_limit_Nm = accel_limit * vehicle_mass * wheel_radius
         
-        kp_trq = 10
+        kp_trq = 100
         ki_trq = 1.0
         kd_trq = 0.0
         self.throt = 0
@@ -37,10 +37,12 @@ class Controller(object):
         if dbw_enabled:
             veh_spd_act_filt = self.low_pass_filter.filt(veh_spd_act)
             veh_spd_err = veh_spd_cmd - veh_spd_act_filt
-            
+            #print('veh_spd_err = ', veh_spd_err, 'veh_spd_cmd = ', veh_spd_cmd)
             veh_trq_req = self.trq_pid.step(veh_spd_err, 0.02)
             if veh_trq_req <= 0:
                 self.brake = -veh_trq_req
+                if(veh_spd_cmd < 0.1):
+                    self.brake = 700 #per udacity suggestion
                 self.throt = 0
             else:
                 self.brake = 0 
