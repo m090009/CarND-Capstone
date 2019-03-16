@@ -37,20 +37,19 @@ class Controller(object):
         if dbw_enabled:
             veh_spd_act_filt = self.low_pass_filter.filt(veh_spd_act)
             veh_spd_err = veh_spd_cmd - veh_spd_act_filt
-            #print('veh_spd_err = ', veh_spd_err, 'veh_spd_cmd = ', veh_spd_cmd)
-            veh_trq_req = self.trq_pid.step(veh_spd_err, 0.02)
-            if veh_trq_req <= 0:
-                
-                if(veh_spd_cmd < 0.1):
-                    self.brake = 1000 #per udacity suggestion
-                    self.throt = 0.0
-                    self.trq_pid.reset()
-                else:
+            
+            if(veh_spd_cmd < 0.1):
+                self.brake = 1000 #per udacity suggestion
+                self.throt = 0.0
+                self.trq_pid.reset()
+            else:
+                veh_trq_req = self.trq_pid.step(veh_spd_err, 0.02)
+                if veh_trq_req <= 0:
                     self.throt = 0.0
                     self.brake = -veh_trq_req
-            else:
-                self.brake = 0 
-                self.throt = veh_trq_req / self.accel_limit_Nm
+                else:
+                    self.brake = 0 
+                    self.throt = veh_trq_req / self.accel_limit_Nm
 
             self.steering = self.yaw_controller.get_steering(veh_spd_cmd, angular_vel, veh_spd_act_filt) 
             return self.throt, self.brake, self.steering
