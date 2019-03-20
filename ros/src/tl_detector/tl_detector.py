@@ -9,7 +9,6 @@ from cv_bridge import CvBridge
 from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
-import PIL
 import yaml
 import numpy as np
 from scipy import spatial
@@ -244,11 +243,24 @@ class TLDetector(object):
         # print(len(outputs))
         if outputs is None:
             # print('No prediction')
-            return None
+            return TrafficLight.UNKNOWN
         # print("Classes {}".format(outputs[1]))
 
         # print(np.take(self.classes, outputs[1]))
-        return light.state
+        predicted_traffic_light = self.classes[outputs[1][0][0] - 1]
+        # print(predicted_traffic_light)
+        # Default it as red for safety
+        light_state = TrafficLight.RED
+        
+        if predicted_traffic_light == 'Green':
+            light_state = TrafficLight.GREEN
+        elif predicted_traffic_light == 'Yellow':
+            light_state = TrafficLight.YELLOW
+        else : 
+            light_state = TrafficLight.RED
+
+
+        return light_state#light.state
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
