@@ -114,7 +114,6 @@ class TLDetector(object):
 
         return  graph_def
 
-
     def normalize_image(self, image):
         imagenet_stats = (np.array([0.485, 0.456, 0.406]),
                           np.array([0.229, 0.224, 0.225]))
@@ -135,14 +134,13 @@ class TLDetector(object):
         # Resize image 
         image = self.resize_image(image, 224, 224)
         # Normalize the image
-        image = self.normalize(image)
+        image = self.normalize_image(image)
         return image
 
     # def postprocess_prediction(self):
 
     def load_model_with_path(self, model_path):
         return 0
-
 
     def pose_cb(self, msg):
         self.pose = msg
@@ -216,20 +214,17 @@ class TLDetector(object):
 
         # If we don't get an image we return nothing
         if(not self.has_image):
-            print("AHAAA")
             self.prev_light_loc = None
             return False
 
 
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-        print(cv_image.shape)
-        # image = self.preprocess_image(cv_image)
+        image = self.preprocess_image(cv_image)
 
         #Get classification
-        # return self.light_classifier.get_classification(cv_image)
         #print(light.state)
-        # prediction = self.tf_sess.run([self.outputs1, self.outputs2],
-        #                      feed_dict={self.input_image: np.expand_dims(image, axis=0)})
+        prediction = self.tf_sess.run([self.outputs1, self.outputs2],
+                             feed_dict={self.input_image: np.expand_dims(image, axis=0)})
         # print(prediction)
         return light.state
 
