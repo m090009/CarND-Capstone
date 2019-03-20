@@ -13,6 +13,7 @@ import PIL
 import yaml
 import numpy as np
 from scipy import spatial
+import PIL 
 
 # Tensorflow imports 
 import tensorflow as tflow
@@ -52,6 +53,8 @@ class TLDetector(object):
         self.is_site = self.config['is_site']
         # Init model 
         self.init_model()
+        # Init analyzer 
+        self.analyzer = BBoxAnalyzer()
 
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
@@ -218,14 +221,33 @@ class TLDetector(object):
             return False
 
 
-        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-        image = self.preprocess_image(cv_image)
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
+        pil_image = PIL.Image.fromarray(cv_image)
+        pil_image = pil_image.resize((224, 224), resample=PIL.Image.BILINEAR)
 
+        pil_image = np.asarray(pil_image).transpose(2, 0, 1)
+        pil_image = np.multiply(pil_image, 1.0 /255.0)
+        image = self.normalize_image(pil_image)
+        # image = self.preprocess_image(pil_image)
+
+        # cv2.imwrite('messigray.png',cv_image)
         #Get classification
         #print(light.state)
-        prediction = self.tf_sess.run([self.outputs1, self.outputs2],
+
+        preds = self.tf_sess.run([self.outputs1, self.outputs2],
                              feed_dict={self.input_image: np.expand_dims(image, axis=0)})
-        # print(prediction)
+        # print(preds[1])
+        # np.savez('tensor', preds_0=preds[0][0], preds_1=preds[1][0])
+        
+        
+        outputs = self.analyzer.analyze_pred((preds[0][0], preds[1][0]), thresh=0.3)
+        # print(len(outputs))
+        if outputs is None:
+            # print('No prediction')
+            return None
+        # print("Classes {}".format(outputs[1]))
+
+        # print(np.take(self.classes, outputs[1]))
         return light.state
 
     def process_traffic_lights(self):
@@ -241,7 +263,6 @@ class TLDetector(object):
         closest_light = None
         # Traffic light line waypoint
         tl_line_wp_index = None
-        print('HERE')
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
@@ -270,6 +291,130 @@ class TLDetector(object):
         # Better astop if you dont know the traffic statee
 
         return -1, TrafficLight.UNKNOWN
+
+
+
+class BBoxAnalyzer(object):
+    def __init__(self,grids=[4, 2, 1], zooms=[0.7, 1., 1.3],ratios=[[1., 1.], [1., 0.5], [0.5, 1.]], bias=-4.):
+        super(BBoxAnalyzer, self).__init__()
+        self._create_anchors(grids, zooms, ratios)
+        
+    def _create_anchors(self, anc_grids, anc_zooms, anc_ratios):    
+        self.grids = anc_grids
+        self.zooms = anc_zooms
+        self.ratios =  anc_ratios
+        anchor_scales = [(anz*i, anz*j) for anz in anc_zooms for (i,j) in anc_ratios]
+        self._anchors_per_cell = len(anchor_scales)
+        anc_offsets = [1/(o*2) for o in anc_grids]
+        anc_x = np.concatenate([np.repeat(np.linspace(ao, 1-ao, ag), ag)
+                                for ao,ag in zip(anc_offsets,anc_grids)])
+        anc_y = np.concatenate([np.tile(np.linspace(ao, 1-ao, ag), ag)
+                                for ao,ag in zip(anc_offsets,anc_grids)])
+        anc_ctrs = np.repeat(np.stack([anc_x,anc_y], axis=1), self._anchors_per_cell, axis=0)
+
+        anc_sizes  =   np.concatenate([np.array([[o/ag,p/ag] for i in range(ag*ag) for o,p in anchor_scales])
+                       for ag in anc_grids])
+                       
+        self._grid_sizes = np.expand_dims(np.concatenate([np.array([ 1/ag  for i in range(ag*ag) for o,p in anchor_scales])
+                       for ag in anc_grids]), 1)
+        self._anchors = np.concatenate([anc_ctrs, anc_sizes], axis=1)
+        self._anchor_cnr = self._hw2corners(self._anchors[:,:2], self._anchors[:,2:])
+	
+    def _hw2corners(self, ctr, hw): 
+        return np.concatenate([ctr-hw/2, ctr+hw/2], axis=1)
+
+    def sigmoid(self, x):
+        return  1/(1+np.exp(-x))
+
+    def analyze_pred(self, pred, thresh=0.5, nms_overlap=0.1):
+        # print('Heeeey, Im heeerere')
+        # def analyze_pred(pred, anchors, grid_sizes, thresh=0.5, nms_overlap=0.1, ssd=None):
+        b_clas, b_bb = pred
+        a_ic = self._actn_to_bb(b_bb, self._anchors, self._grid_sizes)
+        conf_scores = b_clas[:, 1:].max(1)
+        conf_scores = self.sigmoid(b_clas.transpose())
+        # pdb.set_trace()
+
+        out1, bbox_list, class_list = [], [], []
+        # pdb.set_trace()
+        for cl in range(1, len(conf_scores)):
+            c_mask = conf_scores[cl] > thresh
+            if c_mask.sum() == 0: 
+                # print("Skipped{}".format(c_mask.sum()))
+                continue
+            scores = conf_scores[cl][c_mask]
+            l_mask = np.expand_dims(c_mask, 1)
+            l_mask = np.broadcast_to(l_mask, a_ic.shape)
+            boxes = a_ic[l_mask].reshape((-1, 4)) # boxes are now in range[ 0, 1]
+            boxes = (boxes-0.5) * 2.0        # putting boxes in range[-1, 1]
+            ids, count = self.nms(boxes, scores, nms_overlap, 50) # FIX- NMS overlap hardcoded
+            ids = ids[:count]
+            out1.append(scores[ids])
+            # pdb.set_trace()
+            bbox_list.append(boxes[ids])
+            class_list.append([cl]*count)
+        # pdb.set_trace()
+        if len(bbox_list) == 0:
+            return None #torch.Tensor(size=(0,4)), torch.Tensor()
+        return bbox_list, class_list
+    
+    def _actn_to_bb(self, actn, anchors, grid_sizes):
+        actn_bbs = np.tanh(actn)
+        actn_centers = (actn_bbs[:,:2]/2 * grid_sizes) + anchors[:,:2]
+        actn_hw = (actn_bbs[:,2:]/2+1) * anchors[:,2:]
+        return self._hw2corners(actn_centers, actn_hw)
+
+
+    def nms(self, boxes, scores, overlap=0.5, top_k=100):
+        keep = np.zeros_like(scores, dtype=np.long)
+        if np.size(boxes) == 0: return keep
+        x1 = boxes[:, 0]
+        y1 = boxes[:, 1]
+        x2 = boxes[:, 2]
+        y2 = boxes[:, 3]
+        area = np.multiply(x2 - x1, y2 - y1)
+        idx = np.argsort(scores, axis=0)  # sort in ascending order
+        idx = idx[-top_k:]  # indices of the top-k largest vals
+        xx1 = np.array([], dtype=boxes.dtype)
+        yy1 = np.array([], dtype=boxes.dtype)
+        xx2 = np.array([], dtype=boxes.dtype)
+        yy2 = np.array([], dtype=boxes.dtype)
+        w = np.array([], dtype=boxes.dtype)
+        h = np.array([], dtype=boxes.dtype)
+        count = 0
+        while np.size(idx) > 0:
+            i = idx[-1]  # index of current largest val
+            keep[count] = i
+            count += 1
+            if idx.shape[0] == 1: break
+            idx = idx[:-1]  # remove kept element from view
+            # load bboxes of next highest vals
+            xx1 = np.take(x1, idx)
+            yy1 = np.take(y1, idx)
+            xx2 = np.take(x2, idx)
+            yy2 = np.take(y2, idx)
+            # store element-wise max with next highest score
+            xx1 = np.clip(xx1, x1[i], None)
+            yy1 = np.clip(yy1, y1[i], None)
+            xx2 = np.clip(xx2, None, x2[i])
+            yy2 = np.clip(yy2, None, y2[i])
+            
+            w = np.resize(w, xx2.shape)
+            h = np.resize(w, yy2.shape)
+            w = xx2 - xx1
+            h = yy2 - yy1
+            # check sizes of xx1 and xx2.. after each iteration
+            w = np.clip(w, 0.0, None)
+            h = np.clip(h, 0.0, None)
+            inter = w*h
+            # IoU = i / (area(a) + area(b) - i)
+            rem_areas = np.take(area, idx)  # load remaining areas)
+            # pdb.set_trace()
+            union = (rem_areas - inter) + area[i]
+            IoU = inter/union  # store result in iou
+            # keep only elements with an IoU <= overlap
+            idx = idx[np.less_equal(IoU, overlap)]
+        return keep, count
 
 if __name__ == '__main__':
     try:
