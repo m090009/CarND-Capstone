@@ -57,8 +57,9 @@ Thumbs.db
 
 # Model files
 ####################
-.h5
-.hdf5
+*.h5
+*.hdf5
+*.pb
 
 # Bag files
 ####################333
