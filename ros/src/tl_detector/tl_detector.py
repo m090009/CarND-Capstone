@@ -87,14 +87,17 @@ class TLDetector(object):
         # Models paths
         models_path = "../../../models/"
         sim_model_name = "sim-FL-2400.pb"
-        site_model_name = "site-FL.pb"
+        site_model_name = "rl-bosch-FL-600.pb"
         # Model path, by default its going to be the sim model path
         model_path = models_path + sim_model_name 
-        self.classes = self.classes[:3]
+        
         if self.is_site:
             # model_graph = 
             # Switch to the model site model path
             model_path = models_path + site_model_name
+            print("SITE")
+        else:
+            self.classes = self.classes[:3]
         # Init tensorflow variables 
         self.tf_graph = self.load_tf_graph(model_path)
         self.tf_sess = tflow.InteractiveSession() 
@@ -259,7 +262,7 @@ class TLDetector(object):
         else : 
             light_state = TrafficLight.RED
 
-
+        print(light_state)
         return light_state#light.state
 
     def process_traffic_lights(self):
