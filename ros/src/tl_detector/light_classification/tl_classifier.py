@@ -36,11 +36,17 @@ class TLClassifier(object):
         model_path = models_path + sim_model_name 
         
         if is_site:
+            # On Site
             # Switch to the model site model path
             model_path = models_path + site_model_name
+            # Set model Threshold
+            self.threshold = 0.4
             print("\n==========On SITE==========\n")
         else:
+            # In Simulattion 
             self.classes = self.classes[:3]
+            # Set model Threshold
+            self.threshold = 0.3
             print("\n==========In SIM==========\n")
         print("\n==========Loading model==========\n")
         # Init tensorflow Graph (Model) 
@@ -110,13 +116,14 @@ class TLClassifier(object):
 
 
     def postprocess_prediction(self, preds):
-        return self.analyzer.analyze_pred((preds[0][0], preds[1][0]), thresh=0.3)
+        return self.analyzer.analyze_pred((preds[0][0], preds[1][0]), thresh=self.threshold)
     
 
     def get_light(self, preds):
         # Postprocess predictions
         postprocessed_prediction = self.postprocess_prediction(preds)
         if postprocessed_prediction is None:
+            print("Nothing")
             return TrafficLight.UNKNOWN
         # Get light class
         predicted_traffic_light = self.classes[postprocessed_prediction[1][0][0] - 1]
@@ -130,7 +137,7 @@ class TLClassifier(object):
             light_state = TrafficLight.YELLOW
         else : 
             light_state = TrafficLight.RED
-        print(light_state)
+        print(predicted_traffic_light)
         return light_state
 
 class BBoxAnalyzer(object):
