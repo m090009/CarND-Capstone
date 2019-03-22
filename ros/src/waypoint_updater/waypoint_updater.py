@@ -155,7 +155,14 @@ class WaypointUpdater(object):
         """ Publish the updated list of lookahead waypoints """
         if self.pos is not None:
             next_waypoint = self.get_next_waypoint(self.pos, self.waypoints)
-            updated_waypoints = self.waypoints[next_waypoint:next_waypoint+LOOKAHEAD_WPS]
+            
+            # Account for looping back to the start of the waypoint list
+            lookahead_waypoint = next_waypoint+LOOKAHEAD_WPS
+            if lookahead_waypoint < len(self.waypoints):
+                updated_waypoints = self.waypoints[next_waypoint:lookahead_waypoint]
+            else: 
+                additional_points = lookahead_waypoint - len(self.waypoints) - 1
+                update_waypoints = self.waypoints[next_waypoint:] + self.waypoints[:additional_points]
 
             if (self.redlight_wp_index is None or 
                (self.redlight_wp_index < 0) or 
