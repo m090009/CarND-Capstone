@@ -2,7 +2,7 @@
 
 import rospy
 from geometry_msgs.msg import PoseStamped
-from styx_msgs.msg import Lane, Waypoint
+from styx_msgs.msg import Lane, Waypoint, Constants
 from std_msgs.msg import Int32
 
 import math
@@ -47,7 +47,14 @@ class WaypointUpdater(object):
         self.waypoints = None
         self.redlight_wp_index = None
 
-        rospy.spin()
+        self.loop()
+
+    def loop(self):
+        rate = rospy.Rate(Constants.UPDATE_FREQUENCY) # 50Hz
+        while not rospy.is_shutdown():
+            if self.waypoints:
+                self.publish()
+            rate.sleep()
 
     def pose_cb(self, msg):
         """ Callback for a position update """
