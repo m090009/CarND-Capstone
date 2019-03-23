@@ -9,6 +9,10 @@ This is the project repo for the final project of the Udacity Self-Driving Car N
 - Mohamed Elabasiri (mohamedelabasiri at gmail.com)
 - Vern Francisco (avernethy at gmail.com)
 
+
+# Project Instructions
+
+
 Please use **one** of the two installation options, either native **or** docker installation.
 
 ### Native Installation

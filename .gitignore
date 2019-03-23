@@ -8,7 +8,7 @@ __pycache__/
 *$py.class
 
 # folders
-models/
+models/sim-FL-2400.pb
 devel/
 build/
 
@@ -59,7 +59,7 @@ Thumbs.db
 ####################
 *.h5
 *.hdf5
-*.pb
+
 
 # Bag files
 ####################333
