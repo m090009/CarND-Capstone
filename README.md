@@ -4,11 +4,13 @@ This is the project repo for the final project of the Udacity Self-Driving Car N
 
 ## Team Members:
 
-- Dylan Brandtner (dylan.brandtner at elektrobit.com)
-- James DiDonato (jamesdidonato93 at gmail.com) (Team Lead)
-- Mohamed Elabasiri (mohamedelabasiri at gmail.com)
-- Vern Francisco (avernethy at gmail.com)
 
+|Names | Emails|
+|----------|:-------------:|
+|James DiDonato (Team Leader)|jamesdidonato93 at gmail.com|
+|Dylan Brandtner|dylan.brandtner at elektrobit.com|
+|Mohamed Elabasiri|mohamedelabasiri at gmail.com|
+|Avernethy Francisco|avernethy at gmail.com|
 
 # Project Instructions
 
