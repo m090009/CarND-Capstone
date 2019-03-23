@@ -1,7 +1,6 @@
 from styx_msgs.msg import TrafficLight
 import PIL 
 import time
-# Tensorflow imports 
 import tensorflow as tf
 from tensorflow.python.platform import gfile
 import numpy as np
@@ -9,6 +8,11 @@ import numpy as np
 DEBUG_MODE = True
 class TLClassifier(object):
     def __init__(self, is_site):
+        '''Initializes the classifier variables and gets it ready for inception
+
+            Args:
+            is_site: boolean to specify if the system is used either on site or in simulation
+        '''
 
         self.imagenet_stats = (np.array([0.485, 0.456, 0.406]),
                           np.array([0.229, 0.224, 0.225]))
@@ -35,20 +39,26 @@ class TLClassifier(object):
         # Model path, by default its going to be the sim model path
         model_path = models_path + sim_model_name 
         
+
+        
+        '''Specifies different model and a different threshold for the 
+           site and simulation
+
+        '''
         if is_site:
             # On Site
             # Switch to the model site model path
             model_path = models_path + site_model_name
             # Set model Threshold
             self.threshold = 0.4
-            print("\n==========On SITE==========\n")
+            # print("\n==========On SITE==========\n")
         else:
             # In Simulattion 
             self.classes = self.classes[:3]
             # Set model Threshold
             self.threshold = 0.3
-            print("\n==========In SIM==========\n")
-        print("\n==========Loading model==========\n")
+            # print("\n==========In SIM==========\n")
+        # print("\n==========Loading model==========\n")
         # Init tensorflow Graph (Model) 
         self.tf_graph = self.load_tf_graph(model_path)
         # Init Tensorflow's Session
@@ -83,7 +93,16 @@ class TLClassifier(object):
         return light
     
     def load_tf_graph(self, graph_path):
-        print('load graph {}'.format(graph_path))
+        '''Loads the tensorflow grah form the .pb file.
+
+            Args:
+            graph_path: path to the .pb file 
+
+            Returns:
+            tensorflow graph object
+        '''
+
+        # print('load graph {}'.format(graph_path))
         with gfile.FastGFile(graph_path, 'rb') as f:
             graph_def = tf.GraphDef()
         
@@ -92,15 +111,33 @@ class TLClassifier(object):
         return  graph_def
 
     def normalize_image(self, image):
+        '''Normaliz image for inception
+
+            Args:
+            image: numpy array image
+
+            Returns:
+            numpy image: noirmalized image ready to be fed to the model
+        '''
         mean = self.imagenet_stats[0]
         std = self.imagenet_stats[1]
-
+        # Normalize the image against the imagenet stats because the model 
+        # did the same in training
         for i in range(image.shape[0]):
             image[i] = (image[i] - mean[i]) / std[i]
         return image 
 
 
     def preprocess_image(self, cv_image):
+        '''Postprocess the predictions and returns 
+           format.
+
+            Args:
+            perds (RetinaNet Probabilities): predictions to process
+
+            Returns:
+            [[bboxes],[class_ids]]: traffic light bboxes and their corresponding class ids
+        '''        
         # Convert the image into PIL
         pil_image = PIL.Image.fromarray(cv_image)
         # Resize image 
@@ -116,14 +153,33 @@ class TLClassifier(object):
 
 
     def postprocess_prediction(self, preds):
+        '''Postprocess the predictions and returns 
+           format.
+
+            Args:
+            perds (RetinaNet Probabilities): predictions to process
+
+            Returns:
+            [[bboxes],[class_ids]]: traffic light bboxes and their corresponding class ids
+        '''
         return self.analyzer.analyze_pred((preds[0][0], preds[1][0]), thresh=self.threshold)
     
 
     def get_light(self, preds):
+        '''Processes the predictions and returns the light_state in styx_msgs/TrafficLight
+           format.
+
+            Args:
+            perds (all classes probabilities, all bboxes probabilities): predictions to process
+
+            Returns:
+            int: ID of traffic light color (specified in styx_msgs/TrafficLight)
+
+        '''
         # Postprocess predictions
         postprocessed_prediction = self.postprocess_prediction(preds)
         if postprocessed_prediction is None:
-            print("Nothing")
+            # print("Nothing")
             return TrafficLight.UNKNOWN
         # Get light class
         predicted_traffic_light = self.classes[postprocessed_prediction[1][0][0] - 1]
@@ -137,7 +193,7 @@ class TLClassifier(object):
             light_state = TrafficLight.YELLOW
         else : 
             light_state = TrafficLight.RED
-        print(predicted_traffic_light)
+        # print(predicted_traffic_light)
         return light_state
 
 class BBoxAnalyzer(object):
