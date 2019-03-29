@@ -27,7 +27,7 @@ class Controller(object):
         #controller rate is 50Hz -> 0.02 Ts
         #cut off the driver at 10Hz -> 0.1 Tau
         self.low_pass_filter = LowPassFilter(0.1, 0.02)
-        self.steering_low_pass_filter = LowPassFilter(1, 5)
+        self.steering_low_pass_filter = LowPassFilter(1., 5.)
         self.trq_pid   = PID(kp_trq,   ki_trq,   kd_trq,   self.decel_limit_Nm, self.accel_limit_Nm)
         self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
 
