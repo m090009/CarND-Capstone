@@ -1,5 +1,5 @@
 from styx_msgs.msg import TrafficLight
-import PIL 
+from PIL  import Image
 import time
 import tensorflow as tf
 from tensorflow.python.platform import gfile
