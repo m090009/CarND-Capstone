@@ -202,7 +202,6 @@ class TLClassifier(object):
         # Postprocess predictions
         postprocessed_prediction = self.postprocess_prediction(preds)
         if postprocessed_prediction is None:
-            # print("Nothing")
             return TrafficLight.UNKNOWN
         # Get light class
         predicted_traffic_light = self.classes[postprocessed_prediction[1][0][0] - 1]
@@ -216,7 +215,7 @@ class TLClassifier(object):
             light_state = TrafficLight.YELLOW
         else : 
             light_state = TrafficLight.RED
-        # print(predicted_traffic_light)
+        # print(light_state)
         return light_state
 
 class BBoxAnalyzer(object):
@@ -340,10 +339,3 @@ class BBoxAnalyzer(object):
             # keep only elements with an IoU <= overlap
             idx = idx[np.less_equal(IoU, overlap)]
         return keep, count
-
-classifier = TLClassifier(False)
-# image = cv2.imread('left0017v.jpg')
-image = cv2.imread('test_image.png')
-image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-for i in range(10):
-    print(classifier.get_classification(image))
