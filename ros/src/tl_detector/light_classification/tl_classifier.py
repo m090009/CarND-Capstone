@@ -72,6 +72,11 @@ class TLClassifier(object):
         self.input_image = self.tf_sess.graph.get_tensor_by_name("0:0")
         self.outputs1 = self.tf_sess.graph.get_tensor_by_name("concat_52:0")
         self.outputs2 = self.tf_sess.graph.get_tensor_by_name("concat_53:0")
+        # Startup the model predictions
+        # Random numpy array acting as a initial image to start up the model prediction
+        init_image = np.random.randn(3, 224, 224)
+        # Predict the random init image 
+        self.predict(init_image)
         print("\n==========Successfully loaded the model \\0/==========\n")
 
     def fix_graph(self):
@@ -108,13 +113,18 @@ class TLClassifier(object):
         # Preprocess image
         preprocessed_image = self.preprocess_image(image)
         # Predict light
-        preds = self.tf_sess.run([self.outputs1, self.outputs2],
-                             feed_dict={self.input_image: np.expand_dims(preprocessed_image, axis=0)})
+        preds = self.predict(preprocessed_image)
+        # preds = self.tf_sess.run([self.outputs1, self.outputs2],
+        #                      feed_dict={self.input_image: np.expand_dims(preprocessed_image, axis=0)})
         # Post process predictions and get light color 
         light = self.get_light(preds)
 
         return light
     
+    def predict(self, preprocessed_image):
+        return self.tf_sess.run([self.outputs1, self.outputs2],
+                        feed_dict={self.input_image: np.expand_dims(preprocessed_image, axis=0)})
+
     def load_tf_graph(self, graph_path):
         '''Loads the tensorflow grah form the .pb file.
 
@@ -202,6 +212,7 @@ class TLClassifier(object):
         # Postprocess predictions
         postprocessed_prediction = self.postprocess_prediction(preds)
         if postprocessed_prediction is None:
+            # print("Nothing")
             return TrafficLight.UNKNOWN
         # Get light class
         predicted_traffic_light = self.classes[postprocessed_prediction[1][0][0] - 1]
