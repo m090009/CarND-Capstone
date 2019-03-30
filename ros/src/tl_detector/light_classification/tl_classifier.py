@@ -1,5 +1,5 @@
 from styx_msgs.msg import TrafficLight
-import PIL 
+from PIL  import Image
 import time
 import tensorflow as tf
 from tensorflow.python.platform import gfile
@@ -34,8 +34,8 @@ class TLClassifier(object):
         'off']
         # Models paths
         models_path = "../../../models/"
-        sim_model_name = "sim-FL-2400.pb"
-        site_model_name = "rl-bosch-FL-600.pb"
+        sim_model_name = "OLD-sim-FL-2400.pb"
+        site_model_name = "OLD-rl-bosch-FL-600.pb"
         # Model path, by default its going to be the sim model path
         model_path = models_path + sim_model_name 
         
@@ -61,6 +61,8 @@ class TLClassifier(object):
         # print("\n==========Loading model==========\n")
         # Init tensorflow Graph (Model) 
         self.tf_graph = self.load_tf_graph(model_path)
+        # Remove Graph node attrs to accommodate earlier versions of TF
+        self.fix_graph()
         # Init Tensorflow's Session
         self.tf_sess = tf.InteractiveSession() 
         # Set session's graph (load model into Session)
@@ -72,6 +74,27 @@ class TLClassifier(object):
         self.outputs2 = self.tf_sess.graph.get_tensor_by_name("concat_53:0")
         print("\n==========Successfully loaded the model \\0/==========\n")
 
+    def fix_graph(self):
+        # fix nodes
+        for node in self.tf_graph.node:
+            if node.op == 'RefSwitch':
+                node.op = 'Switch'
+                for index in range(len(node.input)):
+                    if 'moving_' in node.input[index]:
+                        node.input[index] = node.input[index] + '/read'
+            elif node.op == 'AssignSub':
+                node.op = 'Sub'
+                if 'use_locking' in node.attr:
+                    del node.attr['use_locking']
+            if "dilations" in node.attr:
+                del node.attr["dilations"]
+            if "index_type" in node.attr:
+                del node.attr["index_type"]
+            if "Truncate" in node.attr:
+                del node.attr["Truncate"]
+            if node.op == 'Where':
+                if "T" in node.attr:
+                    del node.attr["T"]
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
 
@@ -139,9 +162,9 @@ class TLClassifier(object):
             [[bboxes],[class_ids]]: traffic light bboxes and their corresponding class ids
         '''        
         # Convert the image into PIL
-        pil_image = PIL.Image.fromarray(cv_image)
+        pil_image = Image.fromarray(cv_image)
         # Resize image 
-        pil_image = pil_image.resize((224, 224), resample=PIL.Image.BILINEAR)
+        pil_image = pil_image.resize((224, 224), resample=Image.BILINEAR)
         # From PIL to numpy array
         # Convert image to channel, w, h 
         pil_image = np.asarray(pil_image).transpose(2, 0, 1)
@@ -179,7 +202,6 @@ class TLClassifier(object):
         # Postprocess predictions
         postprocessed_prediction = self.postprocess_prediction(preds)
         if postprocessed_prediction is None:
-            # print("Nothing")
             return TrafficLight.UNKNOWN
         # Get light class
         predicted_traffic_light = self.classes[postprocessed_prediction[1][0][0] - 1]
@@ -193,7 +215,7 @@ class TLClassifier(object):
             light_state = TrafficLight.YELLOW
         else : 
             light_state = TrafficLight.RED
-        # print(predicted_traffic_light)
+        # print(light_state)
         return light_state
 
 class BBoxAnalyzer(object):
